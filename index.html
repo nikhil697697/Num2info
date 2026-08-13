@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #output {
+            margin-top: 20px;
+            background: #111;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            min-height: 100px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .status.error {
+            color: #d9534f;
+        }
+        .status.success {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="form-group">
+        <label for="searchInput">Enter 10-Digit Number, Email, Name, or Text:</label>
+        <input type="text" id="searchInput" placeholder="Enter query here...">
+    </div>
+
+    <button id="searchBtn" onclick="performSearch()">Search</button>
+
+    <div id="status" class="status"></div>
+    <pre id="output"></pre>
+</div>
+
+<script>
+    function processInput(input) {
+        const trimmed = input.trim();
+       
+        if (/^\d{10}$/.test(trimmed)) {
+            return "91" + trimmed;
+        }
+        return trimmed;
+    }
+
+    async function performSearch() {
+        const inputVal = document.getElementById('searchInput').value;
+        const statusDiv = document.getElementById('status');
+        const outputPre = document.getElementById('output');
+        const searchBtn = document.getElementById('searchBtn');
+
+        if (!inputVal.trim()) {
+            alert('Please enter a value to search.');
+            return;
+        }
+
+        const query = processInput(inputVal);
+        const apiKey = '88bdfb7f50ef11f01ce2b1803c703c4d';
+        const directApiUrl = `https://l34k-osint.onrender.com/search?key=${apiKey}&query=${encodeURIComponent(query)}`;
+        const proxyApiUrl = `https://corsproxy.io/?${encodeURIComponent(directApiUrl)}`;
+
+        statusDiv.className = 'status';
+        statusDiv.textContent = `Searching: ${query}... (This may take up to 60s if server is spinning up)`;
+        outputPre.textContent = '';
+        searchBtn.disabled = true;
+
+        let response;
+
+        try {
+           
+            try {
+                response = await fetch(directApiUrl);
+            } catch (directErr) {
+               
+                statusDiv.textContent = `Direct fetch blocked by CORS. Retrying via CORS Proxy...`;
+                response = await fetch(proxyApiUrl);
+            }
+
+            if (!response.ok) {
+                throw new Error(`Server returned HTTP status ${response.status}`);
+            }
+
+            const contentType = response.headers.get("content-type");
+            
+            if (contentType && contentType.includes("application/json")) {
+                const data = await response.json();
+                outputPre.textContent = JSON.stringify(data, null, 2);
+            } else {
+                const text = await response.text();
+                outputPre.textContent = text;
+            }
+
+            statusDiv.className = 'status success';
+            statusDiv.textContent = 'Results loaded successfully.';
+        } catch (err) {
+            statusDiv.className = 'status error';
+            statusDiv.textContent = `Error: ${err.message}. If using Render free tier, the server might still be waking up. Try clicking Search again in 30 seconds.`;
+        } finally {
+            searchBtn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
