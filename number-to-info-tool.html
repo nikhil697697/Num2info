@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#06070b">
+    <meta name="description" content="Enter a phone number and get a structured OSINT lookup across multiple sources.">
+    <title>Number → Info · OSINT phone lookup</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='7' fill='%2306070b'/%3E%3Ccircle cx='12' cy='12' r='4.5' fill='%23c9f24d'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #06070b;
+            --panel: #0b0d14;
+            --ink: #e9edf5;
+            --ink-2: #9aa3b5;
+            --ink-3: #5b6577;
+            --line: rgba(255, 255, 255, 0.07);
+            --line-strong: rgba(255, 255, 255, 0.12);
+            --accent: #c9f24d;
+            --accent-ink: #0a0f03;
+            --violet: #8b7cff;
+            --teal: #35e0c8;
+            --danger: #ff9b9b;
+            --ok: #7be39b;
+            --radius: 20px;
+            --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+            --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+            --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        ::selection { background: rgba(201, 242, 77, 0.22); color: var(--ink); }
+
+        /* ---------- ambient background ---------- */
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+            background:
+                radial-gradient(120% 80% at 50% -10%, #0d1020 0%, var(--bg) 55%);
+        }
+        .bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 44px 44px;
+            -webkit-mask-image: radial-gradient(80% 60% at 50% 20%, #000 0%, transparent 100%);
+            mask-image: radial-gradient(80% 60% at 50% 20%, #000 0%, transparent 100%);
+        }
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(110px);
+            opacity: 0.16;
+            will-change: transform;
+        }
+        .orb-1 {
+            width: 520px; height: 520px;
+            left: -140px; top: -120px;
+            background: radial-gradient(circle, var(--violet), transparent 65%);
+            animation: drift-a 34s ease-in-out infinite alternate;
+        }
+        .orb-2 {
+            width: 460px; height: 460px;
+            right: -160px; top: 8%;
+            background: radial-gradient(circle, var(--teal), transparent 65%);
+            animation: drift-b 42s ease-in-out infinite alternate;
+        }
+        .orb-3 {
+            width: 520px; height: 520px;
+            left: 30%; bottom: -240px;
+            background: radial-gradient(circle, var(--accent), transparent 62%);
+            opacity: 0.07;
+            animation: drift-a 50s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes drift-a {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(90px, 60px) scale(1.15); }
+        }
+        @keyframes drift-b {
+            from { transform: translate(0, 0) scale(1.05); }
+            to   { transform: translate(-80px, 90px) scale(0.95); }
+        }
+
+        /* ---------- layout ---------- */
+        .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px 90px; }
+
+        /* ---------- top bar ---------- */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 14px 0;
+            background: rgba(6, 7, 11, 0.62);
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+            margin: 0 -22px 0;
+            padding-left: 22px;
+            padding-right: 22px;
+        }
+        .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: var(--ink); }
+        .brand-mark {
+            width: 34px; height: 34px;
+            display: grid; place-items: center;
+            background: linear-gradient(150deg, rgba(201, 242, 77, 0.14), rgba(139, 124, 255, 0.14));
+            border: 1px solid var(--line-strong);
+            border-radius: 11px;
+        }
+        .brand-name { font-family: var(--font-display); font-weight: 600; font-size: 16px; letter-spacing: -0.01em; }
+        .brand-name em { font-style: normal; color: var(--accent); }
+
+        /* ---------- buttons ---------- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 15px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--ink-2);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.18s, background 0.18s, border-color 0.18s, transform 0.12s, box-shadow 0.25s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:hover {
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--line-strong);
+            transform: translateY(-1px);
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn svg { flex-shrink: 0; }
+
+        .btn-lookup {
+            border: none;
+            background: var(--accent);
+            color: var(--accent-ink);
+            font-weight: 600;
+            font-size: 14px;
+            padding: 13px 22px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -8px rgba(201, 242, 77, 0.45);
+        }
+        .btn-lookup:hover {
+            background: #d8ff6e;
+            color: var(--accent-ink);
+            box-shadow: 0 14px 38px -8px rgba(201, 242, 77, 0.55);
+        }
+        .btn-lookup:active { transform: scale(0.97); }
+        .btn-lookup:disabled { cursor: default; opacity: 0.9; pointer-events: none; }
+        .btn-lookup.loading svg { display: none; }
+        .btn-lookup.loading::after {
+            content: '';
+            width: 15px; height: 15px;
+            border: 2px solid rgba(10, 15, 3, 0.25);
+            border-top-color: rgba(10, 15, 3, 0.9);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .btn-download { border-color: rgba(201, 242, 77, 0.3); color: var(--accent); }
+        .btn-download:hover { background: rgba(201, 242, 77, 0.08); border-color: rgba(201, 242, 77, 0.5); color: var(--accent); }
+
+        /* ---------- hero ---------- */
+        .hero { padding: 64px 0 34px; }
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+        .eyebrow::before {
+            content: '';
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 12px rgba(201, 242, 77, 0.9);
+            animation: pulse-dot 2.4s ease-in-out infinite;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(36px, 7vw, 56px);
+            line-height: 1.03;
+            letter-spacing: -0.035em;
+            margin-top: 20px;
+        }
+        .hero h1 .grad {
+            background: linear-gradient(100deg, var(--accent), var(--teal) 55%, var(--violet));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .hero .sub {
+            margin-top: 16px;
+            max-width: 470px;
+            color: var(--ink-2);
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* ---------- lookup input ---------- */
+        .lookup {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0;
+            padding: 8px 8px 8px 20px;
+            border-radius: 22px;
+            border: 1px solid var(--line-strong);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+            transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+        .lookup:focus-within {
+            border-color: rgba(201, 242, 77, 0.45);
+            box-shadow: 0 0 0 4px rgba(201, 242, 77, 0.09), 0 26px 70px -24px rgba(0, 0, 0, 0.7);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018));
+        }
+        .lookup .cc {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            color: var(--ink-3);
+            letter-spacing: 0.05em;
+            padding-right: 16px;
+            border-right: 1px solid var(--line);
+            line-height: 1;
+        }
+        .lookup input {
+            flex: 1;
+            min-width: 0;
+            margin: 0 16px;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            color: var(--ink);
+            padding: 12px 0;
+        }
+        .lookup input::placeholder {
+            color: var(--ink-3);
+            font-weight: 400;
+            letter-spacing: 0.08em;
+        }
+        .lookup-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            color: var(--ink-3);
+        }
+        .lookup-hint .kbd {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            border: 1px solid var(--line);
+            border-radius: 5px;
+            padding: 1px 6px;
+            color: var(--ink-2);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        /* ---------- results panel ---------- */
+        .panel {
+            margin-top: 22px;
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            overflow: hidden;
+            background: rgba(11, 13, 20, 0.66);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.85);
+        }
+        .panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--line);
+        }
+        .panel-title {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.035);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-2);
+            transition: color 0.3s, border-color 0.3s;
+            white-space: nowrap;
+        }
+        .badge::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+        .badge .loader {
+            display: inline-block;
+            width: 10px; height: 10px;
+            border: 1.5px solid var(--ink-3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-right: 1px;
+        }
+
+        .output-body {
+            position: relative;
+            padding: 20px;
+            min-height: 190px;
+            max-height: 560px;
+            overflow-y: auto;
+            color: var(--ink);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.65;
+            word-break: break-word;
+        }
+        .output-body:empty::before {
+            content: 'Awaiting lookup — enter a number above';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            color: var(--ink-3);
+        }
+        .output-body.is-loading { color: var(--ink-3); animation: pulse-text 1.6s ease-in-out infinite; }
+
+        /* results */
+        .result-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+        }
+        .result-head b { color: var(--accent); font-weight: 500; }
+        .result-head .q { color: var(--ink-2); text-transform: none; letter-spacing: 0.05em; }
+
+        .src-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 22px 0 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+        }
+        .src-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--line-strong), transparent);
+        }
+
+        .rec-card {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 15px 18px 16px;
+            margin-bottom: 10px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            transition: border-color 0.25s, background 0.25s, transform 0.25s;
+        }
+        .rec-card:hover {
+            border-color: rgba(201, 242, 77, 0.28);
+            background: linear-gradient(180deg, rgba(201, 242, 77, 0.045), rgba(255, 255, 255, 0.012));
+            transform: translateX(2px);
+        }
+        .rec-top {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 12px;
+        }
+        .rec-num {
+            font-family: var(--font-mono);
+            font-size: 9.5px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+        }
+        .rec-idx {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--accent);
+            background: rgba(201, 242, 77, 0.07);
+            border: 1px solid rgba(201, 242, 77, 0.2);
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .rec-line {
+            display: grid;
+            grid-template-columns: 122px 1fr;
+            gap: 14px;
+            padding: 4px 0;
+            align-items: baseline;
+        }
+        .rec-key {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+            padding-top: 2px;
+        }
+        .rec-val { color: var(--ink); word-break: break-word; }
+
+        .src-none { color: var(--ink-3); font-style: italic; font-size: 12px; padding: 4px 0; }
+
+        /* empty / error states */
+        .state-empty { text-align: center; padding: 52px 20px; }
+        .state-empty .big {
+            display: inline-grid; place-items: center;
+            width: 52px; height: 52px;
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--ink-3);
+            font-size: 22px;
+            margin-bottom: 16px;
+        }
+        .state-empty p { font-family: var(--font-sans); font-size: 13px; color: var(--ink-3); }
+        .state-empty p .q { color: var(--ink-2); }
+
+        .output-body.error { background: rgba(255, 155, 155, 0.045); }
+        .err-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--danger);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .err-title::before {
+            content: '';
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 12px rgba(255, 155, 155, 0.8);
+            flex-shrink: 0;
+        }
+        .err-msg { color: var(--ink-2); font-family: var(--font-sans); font-size: 13px; margin-top: 8px; }
+
+        /* ---------- action row ---------- */
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        /* ---------- footer ---------- */
+        .foot {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 8px 16px;
+            margin-top: 64px;
+            padding-top: 20px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.07);
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+        }
+        .foot .ok { color: var(--ok); }
+        .foot .sep { opacity: 0.5; }
+
+        /* ---------- toast ---------- */
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translate(-50%, 16px);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            background: #151a24;
+            border: 1px solid var(--line-strong);
+            box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+            transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+        }
+        #toast::before {
+            content: '';
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px rgba(201, 242, 77, 0.8);
+            flex-shrink: 0;
+        }
+        #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        /* ---------- motion ---------- */
+        .reveal { opacity: 0; animation: rise 0.8s var(--ease-out) forwards; }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+        @keyframes pulse-text {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+
+        /* ---------- scrollbar ---------- */
+        .output-body::-webkit-scrollbar { width: 6px; }
+        .output-body::-webkit-scrollbar-track { background: transparent; }
+        .output-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.09); border-radius: 20px; }
+        .output-body::-webkit-scrollbar-thumb:hover { background: rgba(201, 242, 77, 0.3); }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+            .reveal { opacity: 1; }
+        }
+
+        /* ---------- responsive ---------- */
+        @media (max-width: 640px) {
+            .wrap { padding: 0 16px 70px; }
+            .topbar { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+            .hero { padding: 48px 0 28px; }
+            .hero h1 { font-size: 36px; }
+            .lookup {
+                grid-template-columns: auto 1fr;
+                padding: 12px 12px 12px 16px;
+                gap: 10px;
+            }
+            .lookup .cc { padding-right: 12px; }
+            .lookup input { margin: 0 8px; font-size: 17px; padding: 8px 0; }
+            .btn-lookup { grid-column: 1 / -1; width: 100%; justify-content: center; padding: 13px 0; }
+            .actions { justify-content: flex-start; }
+            .actions .btn { flex: 1 1 auto; justify-content: center; }
+            .rec-line { grid-template-columns: 100px 1fr; gap: 10px; }
+            .output-body { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="wrap">
+
+        <!-- top bar -->
+        <header class="topbar reveal">
+            <a class="brand" href="#" onclick="return false;">
+                <span class="brand-mark">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4.5" fill="#c9f24d"></circle>
+                    </svg>
+                </span>
+                <span class="brand-name">Nikhil's Number <em>→</em> Info</span>
+            </a>
+            <button class="btn" id="downloadHtmlBtn" title="Download this page as a standalone HTML file">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 21h16"></path></svg>
+                Save Tool
+            </button>
+        </header>
+
+        <!-- hero -->
+        <section class="hero">
+            <div class="eyebrow reveal" style="animation-delay: 90ms">OSINT · phone intelligence</div>
+            <h1 class="reveal" style="animation-delay: 160ms">Who's behind<br><span class="grad">this number?</span></h1>
+            <p class="sub reveal" style="animation-delay: 240ms">Drop in any Indian mobile number. We'll run it across multiple sources and surface everything linked to it — name, location, operator, and more.</p>
+        </section>
+
+        <!-- lookup -->
+        <section class="lookup reveal" style="animation-delay: 320ms">
+            <label class="cc" for="phoneInput">+91</label>
+            <input type="text" id="phoneInput" placeholder="**********" value="" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Phone number">
+            <button class="btn btn-lookup" id="lookupBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                Lookup
+            </button>
+        </section>
+        <div class="lookup-hint reveal" style="animation-delay: 360ms">
+            <span class="kbd">Enter</span> to search · country code optional
+        </div>
+
+        <!-- results -->
+        <section class="panel reveal" style="animation-delay: 420ms">
+            <div class="panel-head">
+                <span class="panel-title">Results</span>
+                <span class="badge" id="statusBadge">ready</span>
+            </div>
+            <div id="outputContent" class="output-body"></div>
+        </section>
+
+        <!-- actions -->
+        <div class="actions reveal" style="animation-delay: 500ms">
+            <button class="btn" id="clearBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
+                Clear
+            </button>
+            <button class="btn" id="copyBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Copy
+            </button>
+            <button class="btn" id="exampleBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>
+                Example
+            </button>
+            <button class="btn btn-download" id="downloadResultBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg>
+                Download Result
+            </button>
+        </div>
+
+        <!-- footer -->
+        <footer class="foot reveal" style="animation-delay: 580ms">
+            <span><span class="ok">●</span> secure lookup · pretty-printed</span>
+            <span>data via proxy · <span class="sep">v2</span></span>
+        </footer>
+
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            // DOM refs
+            const phoneInput = document.getElementById('phoneInput');
+            const lookupBtn = document.getElementById('lookupBtn');
+            const outputContent = document.getElementById('outputContent');
+            const statusBadge = document.getElementById('statusBadge');
+            const clearBtn = document.getElementById('clearBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const exampleBtn = document.getElementById('exampleBtn');
+            const downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
+            const downloadResultBtn = document.getElementById('downloadResultBtn');
+            const toast = document.getElementById('toast');
+
+            // Base URL template (via CORS proxy worker)
+            const API_URL =
+                'https://number-info-proxy.bills740ssrw.workers.dev/search?key=88bdfb7f50ef11f01ce2b1803c703c4d&query=91**********';
+
+            let staggerSeq = 0;
+            let toastTimer = null;
+
+            // ---------- helpers ----------
+            function buildUrl(phoneNumber) {
+                let cleaned = phoneNumber.replace(/\s/g, '').replace(/^\+/, '').replace(/\D/g, '');
+                if (!cleaned) return API_URL;
+                while (cleaned.length > 10 && cleaned.startsWith('91')) {
+                    cleaned = cleaned.slice(2);
+                }
+                cleaned = cleaned.slice(-10);
+                return API_URL.replace('**********', cleaned);
+            }
+
+            // Pretty print JSON with syntax highlighting
+            function prettyPrintJson(jsonObj) {
+                const jsonStr = JSON.stringify(jsonObj, null, 2);
+                const escaped = jsonStr
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                return escaped
+                    .replace(/"([^"]+)"/g, (match, p1) => {
+                        if (escaped.includes(`"${p1}":`)) {
+                            return `<span class="json-key">"${p1}"</span>`;
+                        }
+                        return match;
+                    })
+                    .replace(/: ("[^"]*")/g, ': <span class="json-string">$1</span>')
+                    .replace(/: (\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+                    .replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>')
+                    .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+            }
+
+            // Get plain text from output (strip HTML)
+            function getPlainText() {
+                return outputContent.textContent || '';
+            }
+
+            // Get raw HTML content from output (preserving formatting)
+            function getRawHtml() {
+                return outputContent.innerHTML || '';
+            }
+
+            function showToast(msg) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            // ---------- structured result renderer ----------
+            function escapeHtml(s) {
+                return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            const FIELD_LABELS = {
+                FullName: 'Name', Name: 'Name', ContactPerson: 'Name',
+                Surname: 'Surname', FatherName: 'Father', MotherName: 'Mother',
+                Phone: 'Phone', MobilePhone: 'Phone', Phone2: 'Phone', Phone3: 'Phone', Phone4: 'Phone',
+                Email: 'Email', Email2: 'Email',
+                Company: 'Company', JobTitle: 'Role', Industry: 'Role', Category: 'Category',
+                Adres: 'Address',
+                City: 'City', IndianState: 'State', Stat: 'State', State: 'State', Country: 'Country',
+                PostalCode: 'PIN', Region: 'Region', DocumentNumber: 'Document',
+                DateOfBirth: 'DOB', Age: 'Age', Gender: 'Gender',
+                RegistrationDate: 'Date', LastActivity: 'Date', Date: 'Date',
+                IP: 'IP', Username: 'Username', Nick: 'Username', LoginName: 'Username',
+                Password: 'Password', EncryptedPassword: 'Password',
+                MobileOperator: 'Operator', Provider: 'Operator'
+            };
+
+            const FIELD_ORDER = [
+                'Name', 'Relationship', 'Surname', 'Father', 'Mother', 'Phone', 'Email', 'Company', 'Role',
+                'Category', 'Address', 'City', 'State', 'Country', 'PIN', 'Region', 'Document',
+                'DOB', 'Age', 'Gender', 'Date', 'IP', 'Username', 'Password', 'Operator'
+            ];
+
+            const BAD_VALUES = ['null', '%20', 'NOT-CAPTURED', '0'];
+
+            const DROP_KEYS = ['Adres2', 'Adres3', 'description'];
+
+            function cleanNameValue(name) {
+                return String(name)
+                    .trim()
+                    .replace(/^(S\/O|D\/O|W\/O|C\/O)\s*:?\s*/i, '')
+                    .split(/\s+/)
+                    .filter(function (w) { return !/^(urf|urph|urp|alias)$/i.test(w); })
+                    .join(' ')
+                    .trim();
+            }
+
+            // Smart re-interpretation of jumbled SIM-registry records.
+            // When the address says "W/O <X>" / "S/O <X>" / "D/O <X>" and FullName matches <X>,
+            // the dump has swapped fields: the real owner is stored in FatherName.
+            function interpretRecord(rec) {
+                const fullName = String(rec.FullName || rec.Name || '').trim();
+                if (!fullName) return null;
+                const father = String(rec.FatherName || '').trim();
+                const adres = [rec.Adres, rec.Adres2, rec.Adres3, rec.Adr, rec.Address]
+                    .filter(function (a) { return a != null; })
+                    .map(String)
+                    .join(' ')
+                    .toUpperCase();
+                const m = adres.match(/\b(S\/O|D\/O|W\/O)\s*:?\s*([A-Za-z]+(?:\s+[A-Za-z]+){0,2})\b/);
+                if (!m) return null;
+
+                const fullUpper = fullName.toUpperCase();
+                const relUpper = m[2].toUpperCase();
+                const matches = fullUpper === relUpper ||
+                    fullUpper.indexOf(relUpper) === 0 ||
+                    relUpper.indexOf(fullUpper) === 0;
+                if (!matches) return null;
+
+                const rel = m[1];
+                const relWord = rel === 'S/O' ? 'Son' : (rel === 'D/O' ? 'Daughter' : 'Wife');
+                const relationship = relWord + ' of ' + cleanNameValue(fullName);
+                const realName = cleanNameValue(father);
+
+                if (realName && rel !== 'C/O') {
+                    return { name: realName, relationship: relationship, swapped: true };
+                }
+                return { name: cleanNameValue(fullName), relationship: relationship, swapped: false };
+            }
+
+            function renderRecord(rec) {
+                const grouped = {};
+                for (const key of Object.keys(rec)) {
+                    if (DROP_KEYS.indexOf(key) !== -1) continue;
+                    const value = String(rec[key] == null ? '' : rec[key]).trim();
+                    if (!value || BAD_VALUES.indexOf(value) !== -1) continue;
+                    const label = FIELD_LABELS[key] || key;
+                    if (!grouped[label]) grouped[label] = [];
+                    if (grouped[label].indexOf(value) === -1) grouped[label].push(value);
+                }
+
+                const interpreted = interpretRecord(rec);
+                if (interpreted) {
+                    grouped['Name'] = [interpreted.name];
+                    grouped['Relationship'] = [interpreted.relationship];
+                    if (interpreted.swapped) delete grouped['Father'];
+                }
+
+                for (const label of Object.keys(grouped)) {
+                    if (label === 'Name' || label === 'Father') {
+                        grouped[label] = grouped[label].map(cleanNameValue);
+                    }
+                }
+
+                const lines = [];
+                const used = {};
+                for (const label of FIELD_ORDER) {
+                    if (grouped[label]) {
+                        lines.push([label, grouped[label].join(' · ')]);
+                        used[label] = true;
+                    }
+                }
+                for (const label of Object.keys(grouped)) {
+                    if (!used[label]) lines.push([label, grouped[label].join(' · ')]);
+                }
+
+                if (!lines.length) return '';
+                const seq = staggerSeq++;
+                const delay = (seq % 14) * 55;
+                const body = lines.map(function (kv) {
+                    return '<div class="rec-line"><span class="rec-key">' + escapeHtml(kv[0]) +
+                        '</span><span class="rec-val">' + escapeHtml(kv[1]) + '</span></div>';
+                }).join('');
+                return '<div class="rec-card" style="animation-delay:' + delay + 'ms">' +
+                    '<div class="rec-top"><span class="rec-num">Record</span><span class="rec-idx">' +
+                    String(seq + 1).padStart(2, '0') + '</span></div>' + body + '</div>';
+            }
+
+            function renderResult(json) {
+                if (!json || json.status === false) {
+                    const err = json && json.error ? json.error : 'No results found';
+                    const msg = json && json.message ? '<div class="err-msg">' + escapeHtml(json.message) + '</div>' : '';
+                    return '<div class="err-title">' + escapeHtml(err) + '</div>' + msg;
+                }
+
+                const data = json.data || {};
+                const sources = Object.keys(data).filter(function (k) {
+                    return data[k] && data[k].records;
+                });
+
+                const query = escapeHtml(json.query || '');
+
+                if (!sources.length) {
+                    return '<div class="state-empty"><span class="big">◍</span>' +
+                        '<p>No records returned for <span class="q">' + query + '</span>. Try another number.</p></div>';
+                }
+
+                const html = ['<div class="result-head">Found <b>' + sources.length + '</b> source' +
+                    (sources.length !== 1 ? 's' : '') + ' · <span class="q">' + query + '</span></div>'];
+
+                for (let i = 0; i < sources.length; i++) {
+                    const src = data[sources[i]];
+                    const recs = src.records || [];
+                    html.push('<div class="src-divider">Source ' + (i + 1) + '</div>');
+                    if (!recs.length) {
+                        html.push('<div class="src-none">No records</div>');
+                    } else {
+                        for (const rec of recs) {
+                            html.push(renderRecord(rec));
+                        }
+                    }
+                }
+                return html.join('');
+            }
+
+            // ---------- main lookup ----------
+            async function performLookup() {
+                const raw = phoneInput.value.trim();
+                if (!raw) {
+                    outputContent.textContent = '⚠️ Please enter a phone number.';
+                    outputContent.className = 'output-body error';
+                    statusBadge.textContent = 'empty';
+                    statusBadge.style.color = '';
+                    return;
+                }
+
+                const url = buildUrl(raw);
+                staggerSeq = 0;
+
+                statusBadge.innerHTML = '<span class="loader"></span> loading';
+                statusBadge.style.color = '';
+                outputContent.textContent = 'Sending request …';
+                outputContent.className = 'output-body is-loading';
+                lookupBtn.disabled = true;
+                lookupBtn.classList.add('loading');
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' },
+                        signal: controller.signal,
+                    });
+                    clearTimeout(timeoutId);
+
+                    const rawText = await response.text();
+
+                    let outputHtml = '';
+                    try {
+                        const json = JSON.parse(rawText);
+                        outputHtml = renderResult(json);
+                    } catch (_) {
+                        outputHtml = rawText
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                    }
+
+                    statusBadge.textContent = response.ok ? `✅ ${response.status}` : `⚠️ ${response.status}`;
+                    statusBadge.style.color = response.ok ? '#7be39b' : '#ff9b9b';
+                    outputContent.innerHTML = outputHtml || '(empty response)';
+                    outputContent.className = 'output-body';
+
+                } catch (error) {
+                    let msg = '❌ Request failed: ';
+                    if (error.name === 'AbortError') {
+                        msg += 'timeout (30s)';
+                    } else if (error.message && error.message.includes('Failed to fetch')) {
+                        msg += 'network error — try again or check CORS';
+                    } else {
+                        msg += error.message || 'unknown error';
+                    }
+                    outputContent.textContent = msg;
+                    outputContent.className = 'output-body error';
+                    statusBadge.textContent = '❗ error';
+                    statusBadge.style.color = '#ff9b9b';
+                } finally {
+                    lookupBtn.disabled = false;
+                    lookupBtn.classList.remove('loading');
+                    if (statusBadge.innerHTML.includes('loader')) {
+                        statusBadge.textContent = 'ready';
+                        statusBadge.style.color = '';
+                    }
+                }
+            }
+
+            // ---------- download result as HTML ----------
+            function downloadResult() {
+                const plainText = getPlainText();
+                if (!plainText || plainText.trim() === '' || plainText.includes('result will appear here')) {
+                    alert('No result to download. Please perform a lookup first.');
+                    return;
+                }
+
+                const phoneNumber = phoneInput.value.trim() || 'unknown';
+                const timestamp = new Date().toLocaleString();
+
+                // Build a standalone HTML page with the result
+                const resultHtml = `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Number Info Result - ${phoneNumber}</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    background: radial-gradient(120% 80% at 50% -10%, #0d1020 0%, #06070b 55%);
+                    font-family: 'Inter', system-ui, sans-serif;
+                    padding: 2rem 1.2rem;
+                    color: #e9edf5;
+                    min-height: 100vh;
+                }
+                .container { max-width: 860px; margin: 0 auto; }
+                .header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                    padding-bottom: 1.2rem;
+                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                    margin-bottom: 1.6rem;
+                }
+                .header h1 {
+                    font-family: 'Space Grotesk', sans-serif;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    letter-spacing: -0.02em;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .header h1::before {
+                    content: '';
+                    width: 12px; height: 12px;
+                    border-radius: 50%;
+                    background: #c9f24d;
+                    box-shadow: 0 0 14px rgba(201,242,77,0.8);
+                }
+                .header .meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+                .badge {
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                    letter-spacing: 0.06em;
+                    color: #c9f24d;
+                    border: 1px solid rgba(201,242,77,0.3);
+                    background: rgba(201,242,77,0.06);
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                }
+                .meta .time {
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 11px;
+                    color: #5b6577;
+                }
+                .result {
+                    background: rgba(11,13,20,0.7);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 1.2rem;
+                    padding: 1.6rem 1.8rem;
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    font-size: 13px;
+                    line-height: 1.8;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    max-height: 640px;
+                    overflow-y: auto;
+                    color: #e9edf5;
+                }
+                .footer {
+                    margin-top: 1.4rem;
+                    text-align: center;
+                    color: #3f4756;
+                    font-size: 11px;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    font-family: 'JetBrains Mono', monospace;
+                }
+                .result::-webkit-scrollbar { width: 6px; }
+                .result::-webkit-scrollbar-track { background: transparent; }
+                .result::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 20px; }
+                @media (max-width: 600px) {
+                    .result { padding: 1.1rem 1.1rem; font-size: 12px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Number Info</h1>
+                    <div class="meta">
+                        <span class="badge">${phoneNumber}</span>
+                        <span class="time">${timestamp}</span>
+                    </div>
+                </div>
+                <div class="result">
+                    ${plainText}
+                </div>
+                <div class="footer">
+                    Generated by Number → Info Tool · ${new Date().toISOString().split('T')[0]}
+                </div>
+            </div>
+        </body>
+        </html>`;
+
+                // Download the HTML file
+                const blob = new Blob([resultHtml], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `number-info-${phoneNumber}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Feedback
+                const orig = statusBadge.textContent;
+                statusBadge.textContent = '⬇️ result saved!';
+                showToast('Result downloaded');
+                setTimeout(() => {
+                    if (statusBadge.textContent === '⬇️ result saved!') {
+                        statusBadge.textContent = orig;
+                    }
+                }, 2000);
+            }
+
+            // ---------- event listeners ----------
+            lookupBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                performLookup();
+            });
+
+            phoneInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performLookup();
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                phoneInput.value = '';
+                staggerSeq = 0;
+                outputContent.innerHTML = '';
+                outputContent.className = 'output-body';
+                statusBadge.textContent = 'cleared';
+                statusBadge.style.color = '';
+                showToast('Cleared');
+            });
+
+            copyBtn.addEventListener('click', () => {
+                const text = getPlainText();
+                if (!text || text.trim() === '' || text.includes('result will appear here')) {
+                    alert('Nothing to copy — response is empty.');
+                    return;
+                }
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        const orig = statusBadge.textContent;
+                        statusBadge.textContent = '📋 copied!';
+                        showToast('Copied to clipboard');
+                        setTimeout(() => {
+                            if (statusBadge.textContent === '📋 copied!') {
+                                statusBadge.textContent = orig;
+                            }
+                        }, 1500);
+                    })
+                    .catch(() => {
+                        const area = document.createElement('textarea');
+                        area.value = text;
+                        document.body.appendChild(area);
+                        area.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(area);
+                        statusBadge.textContent = '📋 copied!';
+                        showToast('Copied to clipboard');
+                        setTimeout(() => {
+                            if (statusBadge.textContent === '📋 copied!') {
+                                statusBadge.textContent = 'ready';
+                            }
+                        }, 1500);
+                    });
+            });
+
+            exampleBtn.addEventListener('click', () => {
+                phoneInput.value = '9876543210';
+                showToast('Loading example');
+                setTimeout(performLookup, 120);
+            });
+
+            // Download Result button
+            downloadResultBtn.addEventListener('click', downloadResult);
+
+            // Download Tool (entire page) button
+            downloadHtmlBtn.addEventListener('click', function() {
+                const doctype = '<!DOCTYPE html>\n';
+                const html = doctype + document.documentElement.outerHTML;
+                const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'number-to-info-tool.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                const orig = statusBadge.textContent;
+                statusBadge.textContent = '⬇️ tool saved!';
+                showToast('Tool saved');
+                setTimeout(() => {
+                    if (statusBadge.textContent === '⬇️ tool saved!') {
+                        statusBadge.textContent = orig;
+                    }
+                }, 1800);
+            });
+
+            // initial state
+            outputContent.innerHTML = '';
+
+        })();
+    </script>
+
+
+
+</body></html>
